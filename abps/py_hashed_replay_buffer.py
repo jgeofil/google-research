@@ -109,8 +109,7 @@ class PyHashedReplayBuffer(py_uniform_replay_buffer.PyUniformReplayBuffer):
 
   def __init__(self, data_spec, capacity, log_interval=None):
     if not isinstance(data_spec, trajectory.Trajectory):
-      raise ValueError(
-          'data_spec must be the spec of a trajectory: {}'.format(data_spec))
+      raise ValueError(f'data_spec must be the spec of a trajectory: {data_spec}')
     super(PyHashedReplayBuffer, self).__init__(data_spec, capacity)
 
     self._frame_buffer = FrameBuffer()
@@ -142,8 +141,8 @@ class PyHashedReplayBuffer(py_uniform_replay_buffer.PyUniformReplayBuffer):
     if (self._log_interval and
         self._np_state.item_count % self._log_interval == 0):
       logging.info(
-          '%s', 'Effective Replay buffer frame count: {}'.format(
-              len(self._frame_buffer)))
+          '%s',
+          f'Effective Replay buffer frame count: {len(self._frame_buffer)}')
 
     return traj._replace(observation=observation)
 

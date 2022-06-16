@@ -31,6 +31,7 @@
 # limitations under the License.
 
 """Tensorflow Code for Generalized Bags Training for Scenario VI."""
+
 import pathlib
 import pickle
 import random
@@ -45,9 +46,9 @@ rng = np.random.default_rng(5443723)
 path_to_root_data_dir = (pathlib.Path(__file__).parent /
                          "../../Data/").resolve()
 
-directory_full_datasets = str(path_to_root_data_dir) + "/FullDatasets/"
+directory_full_datasets = f"{str(path_to_root_data_dir)}/FullDatasets/"
 
-root_for_experiments = str(path_to_root_data_dir) + "/"
+root_for_experiments = f"{str(path_to_root_data_dir)}/"
 
 cluster_bags_method = 6
 
@@ -184,8 +185,7 @@ def custom_loss_kld_genbag(y_true_extended, y_pred):
       loss2 = kld(
           y_true=oneminus_avg_sum_y_combined_sliced_actual,
           y_pred=oneminus_avg_sum_y_combined_sliced_pred)
-      thisloss = loss1 + loss2
-      return thisloss
+      return loss1 + loss2
 
     this_bag_loss = tf.cond(
         tf.reduce_sum(wts) > 0.0, thisbagloss, lambda: 0.0)
@@ -295,10 +295,7 @@ for datasetIndex, datasetName in enumerate(datasetName_list):
       print(correlation_matrix)
 
       def label_map(x):
-        if x == -1:
-          return 0
-        else:
-          return 1
+        return 0 if x == -1 else 1
 
       list_of_features = []
 

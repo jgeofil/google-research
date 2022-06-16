@@ -65,12 +65,12 @@ ATARI_FRAME_SKIP = 4
 
 def get_run_args():
   """Builds a dict of run arguments from flags."""
-  run_args = {}
-  run_args['enable_functions'] = FLAGS.enable_functions
-  run_args['pbt'] = FLAGS.pbt
-  run_args['online_eval_use_train'] = FLAGS.online_eval_use_train
-  run_args['create_hparam'] = FLAGS.create_hparam
-
+  run_args = {
+      'enable_functions': FLAGS.enable_functions,
+      'pbt': FLAGS.pbt,
+      'online_eval_use_train': FLAGS.online_eval_use_train,
+      'create_hparam': FLAGS.create_hparam,
+  }
   if FLAGS.n_step_update:
     run_args['n_step_update'] = FLAGS.n_step_update
   if FLAGS.dqn_type:

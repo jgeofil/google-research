@@ -126,9 +126,5 @@ def build_logistic_regression_inference_subgraph(features, reuse, params):
         features['sequence'],
         [-1, params['seq_encoding_length'] * params['residue_encoding_size']])
 
-    logits = tf.layers.dense(
-        features_flat,
-        units=params['num_classes'],
-        activation=None)
-
-    return logits
+    return tf.layers.dense(
+        features_flat, units=params['num_classes'], activation=None)

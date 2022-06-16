@@ -39,8 +39,7 @@ ATARI_FRAME_SKIP = 4
 
 def get_run_args():
   """Builds a dict of run arguments from flags."""
-  run_args = {}
-  run_args['is_eval'] = FLAGS.is_eval
+  run_args = {'is_eval': FLAGS.is_eval}
   if FLAGS.n_step_update:
     run_args['n_step_update'] = FLAGS.n_step_update
   if FLAGS.enable_functions:

@@ -189,7 +189,7 @@ def perturb(num, low=0.95, high=1.05):
 
 
 def unstack_time_steps(stack_timesteps):
-  st_component = [item for item in stack_timesteps]
+  st_component = list(stack_timesteps)
   t_components = zip(*st_component)
   return [ts.TimeStep(*t_component) for t_component in t_components]
 
@@ -209,8 +209,7 @@ def add_summary(file_writer, tag, value, step):
 
 
 def write_csv(outdir, tag, value, step, iteration):
-  with tf.gfile.GFile(os.path.join(outdir, tag + '%r=3.2:sl=8M'),
-                      'a+') as writer:
+  with tf.gfile.GFile(os.path.join(outdir, f'{tag}%r=3.2:sl=8M'), 'a+') as writer:
     if isinstance(value, str):
       writer.write('%d\t%d\t%s\n' % (iteration, step, value))
     else:
@@ -426,12 +425,11 @@ class Runner(object):
     hparam_path = None
     if tf.gfile.Glob(os.path.join(self._hparam_dir, 'hparam-*.json')):
       logging.info('found existing hyper parameters')
-      most_recent_hparam = max([
+      most_recent_hparam = max(
           int(x.split('.json')[0].split('-')[-1]) for x in tf.gfile.Glob(
-              os.path.join(self._hparam_dir, 'hparam-*.json'))
-      ])
+              os.path.join(self._hparam_dir, 'hparam-*.json')))
       hparam_path = os.path.join(self._hparam_dir,
-                                 'hparam-{}.json'.format(most_recent_hparam))
+                                 f'hparam-{most_recent_hparam}.json')
       self._load_hparam(hparam_path)
     elif tf.gfile.Exists(os.path.join(self._home_dir, 'hparam-0.json')):
       hparam_path = os.path.join(self._home_dir, 'hparam-0.json')
@@ -443,7 +441,7 @@ class Runner(object):
             overwrite=True)
     elif self._create_hparam:
       logging.info('creating hyper parameters')
-      self._worker_names = ['worker_' + str(x) for x in range(num_worker)]
+      self._worker_names = [f'worker_{str(x)}' for x in range(num_worker)]
       self._num_agents = num_worker
       for i, worker_name in enumerate(self._worker_names):
         hparam = hparam_lib.HParams(**self._default_hparams)
@@ -492,11 +490,7 @@ class Runner(object):
     self._device_name = {}
     for i, worker in enumerate(self._worker_names):
       hparam = self._hparams[worker]
-      if self._devices:
-        device = '/gpu:' + str(i % len(self._devices))
-      else:
-        device = '/cpu:0'
-
+      device = f'/gpu:{str(i % len(self._devices))}' if self._devices else '/cpu:0'
       with tf.device(device):
         logging.info('%s (%s) is assigned to machine %s', worker, hparam.name,
                      device)
@@ -548,11 +542,9 @@ class Runner(object):
         worker: self._hparams[worker].values() for worker in self._worker_names
     }
     if snapshot:
-      filename = os.path.join(self._hparam_dir,
-                              'stathparam-' + str(ckpt_step) + '.json')
+      filename = os.path.join(self._hparam_dir, f'stathparam-{str(ckpt_step)}.json')
     else:
-      filename = os.path.join(self._hparam_dir,
-                              'hparam-' + str(ckpt_step) + '.json')
+      filename = os.path.join(self._hparam_dir, f'hparam-{str(ckpt_step)}.json')
     with tf.gfile.GFile(filename, 'w') as json_file:
       json.dump(hparam_dict, json_file)
 
@@ -690,10 +682,10 @@ class Runner(object):
             step_int,
             dtype=tf.int64,
             trainable=False,
-            name='train_step_' + hname)
+            name=f'train_step_{hname}')
       else:
         train_step = tf.Variable(
-            0, dtype=tf.int64, trainable=False, name='train_step_' + hname)
+            0, dtype=tf.int64, trainable=False, name=f'train_step_{hname}')
       epsilon = tf.train.polynomial_decay(
           1.0,
           train_step,
@@ -788,8 +780,7 @@ class Runner(object):
       while True:
         action_steps = batched_policy.action(time_steps)
         next_time_steps = batched_env.step(action_steps.action)
-        is_last = np.where(next_time_steps.is_last())[0]
-        if is_last:
+        if is_last := np.where(next_time_steps.is_last())[0]:
           is_over = is_last[np.asarray(
               [batched_env._envs[i].game_over for i in is_last])]  # pylint: disable=protected-access
           yet_alive = np.setdiff1d(is_last, is_over)
@@ -805,7 +796,11 @@ class Runner(object):
         self._update_metrics(metrics, batched_traj)
         time_steps = next_time_steps
         if is_over:
-          if not done_create_process:
+          if done_create_process:
+            for metric in metrics:
+              count_masked = metric.set_mask(is_over)
+              logging.info('finished_process:%d', count_masked)
+          else:
             unpacked_time_steps = unstack_time_steps(time_steps)
             for process_id in is_over:
               unpacked_time_steps[process_id] = batched_env._envs[  # pylint: disable=protected-access
@@ -815,13 +810,9 @@ class Runner(object):
             logging.info('started episode:%d', count_started_episode)
             if count_started_episode >= episode_limit:
               done_create_process = True
-          else:
-            for metric in metrics:
-              count_masked = metric.set_mask(is_over)
-              logging.info('finished_process:%d', count_masked)
         if count_masked == num_env:
           break
-    logging.info('%s', 'online eval time = {}'.format(self._eval_timer.value()))
+    logging.info('%s', f'online eval time = {self._eval_timer.value()}')
     self._eval_timer.reset()
 
   def _run_step(self, sess, env, time_step, policy):

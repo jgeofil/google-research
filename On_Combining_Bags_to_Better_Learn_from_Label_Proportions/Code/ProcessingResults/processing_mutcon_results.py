@@ -31,13 +31,14 @@
 # limitations under the License.
 
 """Procesing results from Mutual Contamination model code."""
+
 import pathlib
 import pandas as pd
 
 path_to_root_results_dir = (pathlib.Path(__file__).parent /
                             "../../Results/").resolve()
 
-mutcon_exp_results_dir = str(path_to_root_results_dir) + "/Raw_Results/"
+mutcon_exp_results_dir = f"{str(path_to_root_results_dir)}/Raw_Results/"
 
 dataset_name_list = ["Heart", "Ionosphere", "Australian"]
 

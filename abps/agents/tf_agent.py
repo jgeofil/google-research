@@ -78,8 +78,8 @@ class TFAgent(tf.Module):
     common.assert_members_are_not_overridden(base_cls=TFAgent, instance=self)
     if not isinstance(time_step_spec, ts.TimeStep):
       raise ValueError(
-          "The `time_step_spec` must be an instance of `TimeStep`, but is `{}`."
-          .format(type(time_step_spec)))
+          f"The `time_step_spec` must be an instance of `TimeStep`, but is `{type(time_step_spec)}`."
+      )
 
     self._time_step_spec = time_step_spec
     self._action_spec = action_spec
@@ -111,8 +111,8 @@ class TFAgent(tf.Module):
     """
     if self._enable_functions and getattr(self, "_initialize_fn", None) is None:
       raise RuntimeError(
-          "Cannot find _initialize_fn.  Did %s.__init__ call super?" %
-          type(self).__name__)
+          f"Cannot find _initialize_fn.  Did {type(self).__name__}.__init__ call super?"
+      )
     logging.info("cp c: %s", self._enable_functions)
     if self._enable_functions:
       return self._initialize_fn()
@@ -188,8 +188,7 @@ class TFAgent(tf.Module):
 
     def validate_loss_info(loss_info):
       if not isinstance(loss_info, LossInfo):
-        raise TypeError(
-            "loss_info is not a subclass of LossInfo: {}".format(loss_info))
+        raise TypeError(f"loss_info is not a subclass of LossInfo: {loss_info}")
 
     if self._enable_functions:
       loss_info = self._train_fn(experience=experience, weights=weights)

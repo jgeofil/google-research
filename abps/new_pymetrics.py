@@ -69,7 +69,7 @@ class StatsNumpyDeque(py_metrics.NumpyDeque):
     new_buffer = np.zeros(shape=(new_size,), dtype=dtype)
     if self._len == self._buffer.shape[0]:
       data = np.append(self._buffer[self._start_index:],
-                       self._buffer[0:self._start_index])
+                       self._buffer[:self._start_index])
     else:
       assert self._start_index == 0
       data = self._buffer[:self._len]
@@ -95,7 +95,7 @@ class StatsNumpyDeque(py_metrics.NumpyDeque):
   def sum(self, dtype=None):
     if self._len == self._buffer.shape[0]:
       array = np.append(self._buffer[self._start_index:],
-                        self._buffer[0:self._start_index])
+                        self._buffer[:self._start_index])
     else:
       assert self._start_index == 0
       array = self._buffer[:self._len]
@@ -121,7 +121,7 @@ class StatsNumpyDeque(py_metrics.NumpyDeque):
   def rolling_most_recent(self, dtype=None):
     if self._len == self._buffer.shape[0]:
       array = np.append(self._buffer[self._start_index:],
-                        self._buffer[0:self._start_index])
+                        self._buffer[:self._start_index])
     else:
       assert self._start_index == 0
       array = self._buffer[:self._len]

@@ -286,11 +286,11 @@ class OpPairings():
     if key not in self.pairings:
       self._update_pairings(op, in_shapes)
 
-    if output_idx is None or input_idx is None:
-      if output_idx is not None or input_idx is not None:
-        raise ValueError("output_idx and input_idx must both be either "
-                         "specified or None.")
+    if output_idx is None and input_idx is None:
       return self.pairings[key]
+    elif output_idx is None or input_idx is None:
+      raise ValueError("output_idx and input_idx must both be either "
+                       "specified or None.")
     return self.pairings[key][output_idx][input_idx]
 
   def _update_pairings(self, op, in_shapes):
@@ -312,12 +312,13 @@ class OpPairings():
     pairings = GraphPairings.infer(
         model, input_values, state, abstract=False).pairings
 
-    new_pairings = {}
-    for output_idx, output_name in enumerate(output_names):
-      new_pairings[output_idx] = {}
-      for input_idx, input_name in enumerate(op.input_names):
-        new_pairings[output_idx][input_idx] = pairings[output_name][input_name]
-
+    new_pairings = {
+        output_idx: {
+            input_idx: pairings[output_name][input_name]
+            for input_idx, input_name in enumerate(op.input_names)
+        }
+        for output_idx, output_name in enumerate(output_names)
+    }
     key = self.hash(op, in_shapes)
     self.pairings[key] = new_pairings
 
@@ -547,7 +548,7 @@ class GraphPairings(base.AbstractGraphProperty):
 
   def __init__(self, pairings = None):
     # {output_name: {input_name: Pairing}}}
-    self.pairings: Dict[str, Dict[str, Pairing]] = pairings if pairings else {}
+    self.pairings: Dict[str, Dict[str, Pairing]] = pairings or {}
 
   @classmethod
   def _infer_concrete(cls,
@@ -577,7 +578,7 @@ class GraphPairings(base.AbstractGraphProperty):
       outputs = model.apply(state, inputs, training=False, deterministic=True)
       output_tensor = outputs[output_name]
       output_shape = output_tensor.shape
-      idxs = tuple([dim // 2 for dim in output_shape])
+      idxs = tuple(dim // 2 for dim in output_shape)
       slice_sizes = [1] * len(output_shape)
       slice_sizes[dim] = output_shape[dim]
       sliced = jax.lax.dynamic_slice(output_tensor, idxs, tuple(slice_sizes))
@@ -588,7 +589,7 @@ class GraphPairings(base.AbstractGraphProperty):
     def center_element(inputs, output_name):
       outputs = model.apply(state, inputs, training=False, deterministic=True)
       output_tensor = outputs[output_name]
-      dims = tuple([dim // 2 for dim in output_tensor.shape])
+      dims = tuple(dim // 2 for dim in output_tensor.shape)
       return output_tensor[dims]
 
     grad_center = jax.grad(center_element)
@@ -657,7 +658,7 @@ class GraphPairings(base.AbstractGraphProperty):
     pairing_model = PairingModel(model, max_size=max_size)
     input_values = dict(input_values)
     if input_intermediate_values:
-      input_values.update(input_intermediate_values)
+      input_values |= input_intermediate_values
     output_pairings = pairing_model.apply(input_values, state)
 
     if intermediates:
@@ -692,22 +693,21 @@ class LinopProperty(shape.ShapeProperty):
             abstract = True):
     """Infers the linear operator property of a subgraph, given some inputs."""
     if not self.input_values:
-      if subgraph_model.subg_inputs_model is not None:
-        if abstract:
-          shape_model = shape.ShapeModel(subgraph_model.subg_inputs_model)
-          inputs = shape_model.apply(subgraph_model.inputs)
-
-          old_output_names = subgraph_model.subg_inputs_model.graph.output_names
-          subgraph_model.subg_inputs_model.graph.output_names = []
-          shape_model = shape.ShapeModel(subgraph_model.subg_inputs_model)
-          input_intermediate_values = shape_model.apply(subgraph_model.inputs)
-          subgraph_model.subg_inputs_model.graph.output_names = old_output_names
-        else:
-          inputs = subgraph_model.get_default_subg_inputs()
-      else:
+      if subgraph_model.subg_inputs_model is None:
         inputs = subgraph_model.inputs
         input_intermediate_values = subgraph_model.get_subg_inputs(
             subgraph_model.inputs, intermediates=True)
+      elif abstract:
+        shape_model = shape.ShapeModel(subgraph_model.subg_inputs_model)
+        inputs = shape_model.apply(subgraph_model.inputs)
+
+        old_output_names = subgraph_model.subg_inputs_model.graph.output_names
+        subgraph_model.subg_inputs_model.graph.output_names = []
+        shape_model = shape.ShapeModel(subgraph_model.subg_inputs_model)
+        input_intermediate_values = shape_model.apply(subgraph_model.inputs)
+        subgraph_model.subg_inputs_model.graph.output_names = old_output_names
+      else:
+        inputs = subgraph_model.get_default_subg_inputs()
       input_intermediate_values.update(subgraph_model.inputs)
     else:
       inputs = self.input_values
@@ -772,7 +772,7 @@ class LinopProperty(shape.ShapeProperty):
         else:
           other = others[output_name][input_name].mappings
         norm = np.sum(mapping > 0)
-        norm = norm if norm else 1
+        norm = norm or 1
         dist += np.sum(mapping > other) / norm
         count += 1
-    return dist / (count if count else 1)
+    return dist / (count or 1)

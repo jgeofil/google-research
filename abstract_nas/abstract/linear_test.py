@@ -107,15 +107,16 @@ class LinearTest(test.TestCase):
         OpType.RELU, OpType.SOFTMAX, OpType.LAYER_NORM, OpType.BATCH_NORM
     ]:
       for op_ctr in [conv_op, dense_op]:
-        graphs.append([
-            op_ctr(input_names=["input"], op_name="other"),
-            new_op(op_name="output", op_type=op_type, input_names=["other"])
-        ])
-        graphs.append([
-            new_op(op_name="other", op_type=op_type, input_names=["input"]),
-            op_ctr(input_names=["other"], op_name="output"),
-        ])
-
+        graphs.extend((
+            [
+                op_ctr(input_names=["input"], op_name="other"),
+                new_op(op_name="output", op_type=op_type, input_names=["other"]),
+            ],
+            [
+                new_op(op_name="other", op_type=op_type, input_names=["input"]),
+                op_ctr(input_names=["other"], op_name="output"),
+            ],
+        ))
     input_tensor = {"input": jnp.ones((5, 5, 5, 5))}
     for graph in graphs:
       graph = new_graph(["input"], ["output"], graph)

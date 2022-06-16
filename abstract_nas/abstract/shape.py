@@ -103,11 +103,11 @@ class GraphShapes(base.AbstractGraphProperty):
 
     input_values = dict(input_values)
     if input_intermediate_values:
-      input_values.update(input_intermediate_values)
+      input_values |= input_intermediate_values
 
     input_shapes = {
         input_name: input_values[input_name].shape
-        for input_name in input_values.keys()
+        for input_name in input_values
     }
 
     shape_model = ShapeModel(model, max_size=max_size)
@@ -194,7 +194,7 @@ class ShapeProperty(base.AbstractProperty):
       input_values = None
   ):
     """Infers the input shapes of the subgraph."""
-    input_values = input_values if input_values else subgraph_model.inputs
+    input_values = input_values or subgraph_model.inputs
     if subgraph_model.subg_inputs_model is not None:
       input_shapes = GraphShapes.infer(
           subgraph_model.subg_inputs_model,
@@ -219,7 +219,7 @@ class ShapeProperty(base.AbstractProperty):
       input_values = None
   ):
     """Infers the output shapes of the subgraph."""
-    input_values = input_values if input_values else subgraph_model.inputs
+    input_values = input_values or subgraph_model.inputs
     output_shapes = GraphShapes.infer(
         subgraph_model.subg_outputs_model,
         input_values,
@@ -329,13 +329,7 @@ class ShapeProperty(base.AbstractProperty):
       if output_shape[0] != other_shape[0]:
         raise ValueError
 
-      # Check spatial dims.
-      # 1. If all spatial dims are 1, then can use a squeeze pool.
-      check_spatial = False
-      for b in output_shape[1:-1]:
-        if b != 1:
-          check_spatial = True
-          break
+      check_spatial = any(b != 1 for b in output_shape[1:-1])
       # 2. Otherwise, make sure there exists a pooling operation with a square
       # receptive field.
       if check_spatial:
@@ -348,9 +342,8 @@ class ShapeProperty(base.AbstractProperty):
           factor = a // b
 
       # Count mismatched dims.
-      dist += sum(
-          [a != b for a, b in zip(other_shape, output_shape)]
-      ) / len(output_shape)
+      dist += sum(a != b
+                  for a, b in zip(other_shape, output_shape)) / len(output_shape)
 
     if self.safety_only: return 0
     return dist / len(self.output_shapes)

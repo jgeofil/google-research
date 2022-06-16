@@ -77,7 +77,7 @@ def set_property_ablation_config(abl_config, config):
   # no.shape.mutate.linear.nomutate.depth
   val0, key0, val1, key1, val2, key2 = abl_config
 
-  keys = set([key0, key1, key2])
+  keys = {key0, key1, key2}
   vals = [val0, val1, val2]
   if len(keys) != 3:
     raise ValueError(f"Setting {abl_config} not recognized for property "
@@ -89,7 +89,7 @@ def set_property_ablation_config(abl_config, config):
       "linop": "linear_property"
   }
 
-  if all([val == "mutate" for val in vals]): return
+  if all(val == "mutate" for val in vals): return
 
   for key, val in zip(keys, vals):
     if key not in ["shape", "linop", "depth"]:
@@ -128,17 +128,17 @@ def set_dataset_config(dataset, config):
   config.dataset = mlc.ConfigDict()
   if dataset == "imagenet2012":
     config.dataset_name = dataset
-    config.dataset.train_split = "train"
     config.dataset.val_split = "validation"
     config.dataset.num_classes = 1000
     config.dataset.input_shape = (224, 224, 3)
   else:
     assert dataset == "cifar10"
     config.dataset_name = dataset
-    config.dataset.train_split = "train"
     config.dataset.val_split = "test"
     config.dataset.num_classes = 10
     config.dataset.input_shape = (32, 32, 3)
+
+  config.dataset.train_split = "train"
 
 
 def set_model_config(model, config):
@@ -259,11 +259,7 @@ def get_config(params):
   if dataset == "cifar10":
     config.mutator.max_perc = .8
 
-  ###################
-  # Properties Config
-  p = .8
-  if dataset == "cifar10":
-    p = .5
+  p = .5 if dataset == "cifar10" else .8
   config.properties = mlc.ConfigDict()
   config.properties.depth_property = mlc.ConfigDict()
   config.properties.depth_property.p = p
@@ -310,9 +306,9 @@ def get_config(params):
   config.evolution.population.use_pareto_balanced = True
   config.evolution.population.use_pareto_normalized = True
   config.evolution.population.targeted_evol = False
-  if dataset == "imagenet2012":
-    if model == "resnet50" or not model.startswith("resnet"):
-      config.evolution.population.targeted_evol = True
+  if dataset == "imagenet2012" and (model == "resnet50"
+                                    or not model.startswith("resnet")):
+    config.evolution.population.targeted_evol = True
 
   config.evolution.population.aging = mlc.ConfigDict()
   config.evolution.population.aging.warm_up_secs = 30 * 60

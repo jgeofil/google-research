@@ -31,13 +31,14 @@
 # limitations under the License.
 
 """Processing Tensorflow Code Results for (Generalized) bags."""
+
 import pathlib
 import pandas as pd
 
 path_to_root_results_dir = (pathlib.Path(__file__).parent /
                             "../../Results/").resolve()
 
-tf_exp_results_dir = str(path_to_root_results_dir) + "/Raw_Results/"
+tf_exp_results_dir = f"{str(path_to_root_results_dir)}/Raw_Results/"
 
 dataset_name_list = ["Heart", "Ionosphere", "Australian"]
 

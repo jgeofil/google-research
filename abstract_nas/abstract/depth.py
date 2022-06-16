@@ -137,10 +137,10 @@ class DepthProperty(base.AbstractProperty):
           output_to_depth = input_to_depth[output_name]
           for graph_output, parent_dict in output_to_depth.items():
             for parent_is_nonlinear, parent_depth in parent_dict.items():
-              if op_is_nonlinear is not None:
-                if (op_is_nonlinear and not parent_is_nonlinear or
-                    not op_is_nonlinear and parent_is_nonlinear):
-                  parent_depth += 1
+              if op_is_nonlinear is not None and (
+                  (op_is_nonlinear and not parent_is_nonlinear
+                   or not op_is_nonlinear and parent_is_nonlinear)):
+                parent_depth += 1
               cur_depth_to_output = depth.get(graph_output, 0)
               depth[graph_output] = max(parent_depth, cur_depth_to_output)
 
@@ -164,10 +164,7 @@ class DepthProperty(base.AbstractProperty):
       if op_name in depth_map:
         filtered[input_name] = depth_map[op_name]
       else:
-        if ":" not in input_name:
-          key = f"{input_name}:0"
-        else:
-          key = input_name
+        key = f"{input_name}:0" if ":" not in input_name else input_name
         filtered[input_name] = {}
 
         parent_linear = False
@@ -238,7 +235,6 @@ class DepthProperty(base.AbstractProperty):
           dist += 1
         else:
           dist += max(
-              0, depth - other.depth_map[input_name][output_name]
-          ) / (depth if depth else 1)
+              0, depth - other.depth_map[input_name][output_name]) / (depth or 1)
         count += 1
-    return dist / (count if count else 1)
+    return dist / (count or 1)

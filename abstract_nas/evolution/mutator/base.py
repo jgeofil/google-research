@@ -94,11 +94,10 @@ class AbstractMutator(abc.ABC):
             for prop in self.properties
         ]
       else:
-        new_properties = []
-        for prop in self.properties:
-          if type(prop) is ShapeProperty:  # pylint: disable=unidiomatic-typecheck
-            new_properties.append(ShapeProperty().infer(
-                subgraph_model, abstract=abstract))
+        new_properties = [
+            ShapeProperty().infer(subgraph_model, abstract=abstract)
+            for prop in self.properties if type(prop) is ShapeProperty
+        ]
       models_and_props.append((subgraph_model, new_properties))
 
     # match mutated shapes

@@ -26,8 +26,7 @@ class UtilsTest(test.TestCase):
   def test_pareto_curve1(self):
     points = [(3, 1), (2, 2), (1, 3), (3, 3)]
     curve = utils.ParetoCurve(points, first_high=False, second_high=False)
-    self.assertSameElements(curve.standardize_obs(points[0:3]),
-                            curve.curve)
+    self.assertSameElements(curve.standardize_obs(points[:3]), curve.curve)
 
   def test_pareto_curve2(self):
     points = [(3, 1), (2, 2), (1, 3), (3, 3)]

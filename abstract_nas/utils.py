@@ -28,9 +28,7 @@ def report_memory():
   """Prints the size and number of live buffers tracked by the backend."""
   backend = jax.lib.xla_bridge.get_backend()
   live_buffers = backend.live_buffers()
-  total = 0
-  for buf in live_buffers:
-    total += buf.size
+  total = sum(buf.size for buf in live_buffers)
   logging.info(
       "num_buffers: %d | total_elements: %.2e", len(live_buffers), total)
 
@@ -48,9 +46,7 @@ def canonicalize_tensor_name(name):
   Returns:
     The canonicalized input name.
   """
-  if ":" not in name:
-    return f"{name}:0"
-  return name
+  return f"{name}:0" if ":" not in name else name
 
 
 @contextlib.contextmanager

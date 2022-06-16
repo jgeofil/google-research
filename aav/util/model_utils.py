@@ -58,14 +58,11 @@ def get_best_checkpoint_path(
   events.Reload()  # Actually read the event files into memory.
 
   step = None
-  if metric == 'precision':
+  if (metric == 'precision' or metric != 'loss' and metric == 'accuracy'
+      or metric != 'loss' and metric == 'recall'):
     step = _get_best_checkpoint_step(events, metric, higher_is_better=True)
   elif metric == 'loss':
     step = _get_best_checkpoint_step(events, metric, higher_is_better=False)
-  elif metric == 'accuracy':
-    step = _get_best_checkpoint_step(events, metric, higher_is_better=True)
-  elif metric == 'recall':
-    step = _get_best_checkpoint_step(events, metric, higher_is_better=True)
   else:
     raise ValueError('Unknown metric "%s" is not supported' % metric)
 
@@ -90,10 +87,6 @@ def _get_best_checkpoint_step(
 
   metric = summary_df[metric_key]
   best_index = None
-  if higher_is_better:
-    best_index = metric.idxmax()
-  else:
-    best_index = metric.idxmin()
-
+  best_index = metric.idxmax() if higher_is_better else metric.idxmin()
   best_checkpoint = summary_df.iloc[best_index]
   return best_checkpoint.step

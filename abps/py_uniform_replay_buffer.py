@@ -90,9 +90,9 @@ class PyUniformReplayBuffer(replay_buffer.ReplayBuffer):
   def _add_batch(self, items):
     outer_shape = nest_utils.get_outer_array_shape(items, self._data_spec)
     if outer_shape[0] != 1:
-      raise NotImplementedError('PyUniformReplayBuffer only supports a batch '
-                                'size of 1, but received `items` with batch '
-                                'size {}.'.format(outer_shape[0]))
+      raise NotImplementedError(
+          f'PyUniformReplayBuffer only supports a batch size of 1, but received `items` with batch size {outer_shape[0]}.'
+      )
 
     item = nest_utils.unbatch_nested_array(items)
     with self._lock:
@@ -202,14 +202,12 @@ class PyUniformReplayBuffer(replay_buffer.ReplayBuffer):
       return ds
 
   def _gather_all(self):
-    data = [
-        self._decode(self._storage.get(idx))
-        for idx in range(self._capacity)
-        if self._storage.get(idx).observation[0]
-    ]
     # stacked = nest_utils.stack_nested_arrays(data)
     # batched = tf.nest.map_structure(lambda t: np.expand_dims(t, 0), stacked)
-    return data
+    return [
+        self._decode(self._storage.get(idx)) for idx in range(self._capacity)
+        if self._storage.get(idx).observation[0]
+    ]
 
   def _clear(self):
     self._np_state.size = np.int64(0)

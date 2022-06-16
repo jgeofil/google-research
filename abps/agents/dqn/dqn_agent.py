@@ -172,16 +172,15 @@ class DqnAgent(tf_agent.TFAgent):
     if len(flat_action_spec) > 1 or flat_action_spec[0].shape.ndims > 1:
       raise ValueError('Only one dimensional actions are supported now.')
 
-    if not all(spec.minimum == 0 for spec in flat_action_spec):
+    if any(spec.minimum != 0 for spec in flat_action_spec):
       raise ValueError(
           'Action specs should have minimum of 0, but saw: {0}'.format(
               [spec.minimum for spec in flat_action_spec]))
 
     if epsilon_greedy is not None and boltzmann_temperature is not None:
       raise ValueError(
-          'Configured both epsilon_greedy value {} and temperature {}, '
-          'however only one of them can be used for exploration.'.format(
-              epsilon_greedy, boltzmann_temperature))
+          f'Configured both epsilon_greedy value {epsilon_greedy} and temperature {boltzmann_temperature}, however only one of them can be used for exploration.'
+      )
 
     self._q_network = q_network
     self._target_q_network = self._q_network.copy(name='TargetQNetwork')
@@ -212,11 +211,10 @@ class DqnAgent(tf_agent.TFAgent):
 
     if q_network.state_spec and n_step_update != 1:
       raise NotImplementedError(
-          'DqnAgent does not currently support n-step updates with stateful '
-          'networks (i.e., RNNs), but n_step_update = {}'.format(n_step_update))
+          f'DqnAgent does not currently support n-step updates with stateful networks (i.e., RNNs), but n_step_update = {n_step_update}'
+      )
 
-    train_sequence_length = (
-        n_step_update + 1 if not q_network.state_spec else None)
+    train_sequence_length = None if q_network.state_spec else n_step_update + 1
 
     super(DqnAgent, self).__init__(
         time_step_spec,
@@ -231,9 +229,10 @@ class DqnAgent(tf_agent.TFAgent):
         train_step_counter=train_step_counter)
 
     tf.compat.v1.summary.scalar(
-        'epsilon/' + self.name,
+        f'epsilon/{self.name}',
         self._epsilon_greedy,
-        collections=['train_' + self.name])
+        collections=[f'train_{self.name}'],
+    )
 
   def _initialize_v1(self):
     self._q_network.create_variables()
@@ -451,8 +450,8 @@ class DqnAgent(tf_agent.TFAgent):
 
       with tf.name_scope('Losses/'):
         tf.compat.v1.summary.scalar(
-            'loss_' + self.name, loss, collections=['train_' + self.name])
-        # family=self.name)
+            f'loss_{self.name}', loss, collections=[f'train_{self.name}'])
+            # family=self.name)
 
       if self._summarize_grads_and_vars:
         with tf.name_scope('Variables/'):

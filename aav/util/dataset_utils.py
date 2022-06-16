@@ -256,11 +256,7 @@ def as_estimator_input_fn(
     """A tf.Estimator input_fn."""
     ds = dataset.shuffle(buffer_size=10000) if shuffle else dataset
 
-    if num_epochs is None:
-      ds = ds.repeat()
-    else:
-      ds = ds.repeat(num_epochs)
-
+    ds = ds.repeat() if num_epochs is None else ds.repeat(num_epochs)
     if sequence_element_encoding_shape is None:
       ds = ds.batch(batch_size)
     else:

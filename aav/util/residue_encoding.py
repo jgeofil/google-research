@@ -51,8 +51,10 @@ class ResidueIdentityEncoder(object):
         e.g., the 20x 1-letter residue codes for standard peptides.
     """
     self._alphabet = [l.upper() for l in alphabet]
-    self._letter_to_id = dict((letter, id) for (id, letter)
-                              in enumerate(self._alphabet))
+    self._letter_to_id = {
+        letter: id
+        for (id, letter) in enumerate(self._alphabet)
+    }
     self.encoding_size = len(self._alphabet)
 
   def encode(self, residue):

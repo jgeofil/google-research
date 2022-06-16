@@ -339,9 +339,9 @@ def train(args,
             # Save model checkpoint
             checkpoint_output_dir = os.path.join(args.output_dir,
                                                  new_checkpoint)
-            if accelerator.is_main_process:
-              if not os.path.exists(checkpoint_output_dir):
-                os.makedirs(checkpoint_output_dir)
+            if accelerator.is_main_process and not os.path.exists(
+                checkpoint_output_dir):
+              os.makedirs(checkpoint_output_dir)
             accelerator.wait_for_everyone()
             unwrapped_model = accelerator.unwrap_model(model)
             unwrapped_model.save_pretrained(
@@ -405,9 +405,9 @@ def train(args,
       if new_checkpoint in checkpoints:
         # Save model checkpoint
         checkpoint_output_dir = os.path.join(args.output_dir, new_checkpoint)
-        if accelerator.is_main_process:
-          if not os.path.exists(checkpoint_output_dir):
-            os.makedirs(checkpoint_output_dir)
+        if accelerator.is_main_process and not os.path.exists(
+            checkpoint_output_dir):
+          os.makedirs(checkpoint_output_dir)
         accelerator.wait_for_everyone()
         unwrapped_model = accelerator.unwrap_model(model)
         unwrapped_model.save_pretrained(
@@ -461,35 +461,28 @@ def evaluate(args,
   """Evaluate a model checkpoint on the given evaluation data."""
 
   num_examples = args.num_examples[eval_set]
-  eval_metric = None
   completed_steps = 0
   eval_loss = 0.0
   all_predictions = None
   all_references = None
   all_probabilities = None
 
-  if has_labels:
-    # Get the metric function
-    eval_metric = load_metric(args.eval_metric)
-
+  eval_metric = load_metric(args.eval_metric) if has_labels else None
   eval_results = {}
   model.eval()
-  for _, batch in enumerate(dataloader):
+  for batch in dataloader:
     with torch.no_grad():
       outputs = model(**batch)
 
     eval_loss += outputs.loss.item()
     logits = outputs.logits
-    predictions = logits.argmax(
-        dim=-1) if not args.is_regression else logits.squeeze()
+    predictions = (logits.squeeze() if args.is_regression else logits.argmax(
+        dim=-1))
     predictions = accelerator.gather(predictions)
 
-    if all_predictions is None:
-      all_predictions = predictions.detach().cpu().numpy()
-    else:
-      all_predictions = np.append(
-          all_predictions, predictions.detach().cpu().numpy(), axis=0)
-
+    all_predictions = (
+        predictions.detach().cpu().numpy() if all_predictions is None else
+        np.append(all_predictions, predictions.detach().cpu().numpy(), axis=0))
     if not args.is_regression:
       probabilities = logits.softmax(dim=-1).max(dim=-1).values
       probabilities = accelerator.gather(probabilities)
@@ -515,7 +508,7 @@ def evaluate(args,
     completed_steps += 1
 
   if has_labels:
-    eval_results.update(eval_metric.compute())
+    eval_results |= eval_metric.compute()
     eval_results['completed_steps'] = completed_steps
     eval_results['avg_eval_loss'] = eval_loss / completed_steps
 
@@ -564,7 +557,7 @@ def load_from_pretrained(
       cache_dir=args.cache_dir)
   model = AutoModelForSequenceClassification.from_pretrained(
       pretrained_model_name_or_path,
-      from_tf=bool('.ckpt' in args.model_name_or_path),
+      from_tf='.ckpt' in args.model_name_or_path,
       config=config,
       ignore_mismatched_sizes=True,
       cache_dir=args.cache_dir,

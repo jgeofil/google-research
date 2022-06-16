@@ -137,7 +137,5 @@ def build_rnn_inference_subgraph(features, reuse, params):
         initial_state=initial_state,
         dtype=tf.float32)
     output = tf.reduce_mean(outputs, axis=1)
-    logits = tf.layers.dense(
+    return tf.layers.dense(
         output, params['num_classes'], activation=None, use_bias=True)
-
-    return logits

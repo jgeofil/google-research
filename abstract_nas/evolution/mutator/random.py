@@ -89,11 +89,8 @@ class RandomMutator(AbstractMutator):
 
       # Update the outputs produced and the inputs consumed by the current
       # subgraph.
-      for idx in range(op.num_outputs):
-        produced_outputs.append(f"{op.name}:{idx}")
-      for input_name in op.input_names:
-        consumed_inputs.append(input_name)
-
+      produced_outputs.extend(f"{op.name}:{idx}" for idx in range(op.num_outputs))
+      consumed_inputs.extend(iter(op.input_names))
       ops_to_add = []
       # Find all ops which are neighbors of subgraph_ops (which is the current
       # subgraph).

@@ -137,12 +137,9 @@ class PopulationManager:
       aged_acc = acc * 0.5 * (1. + math.cos(math.pi * progress))
     else:
       aged_acc = acc
-      if cyclic:
-        if (num_generations_alive // generations_to_live) % 2:
-          aged_acc = 0
-      else:
-        if num_generations_alive > generations_to_live:
-          aged_acc = 0
+      if (cyclic and (num_generations_alive // generations_to_live) % 2
+          or not cyclic and num_generations_alive > generations_to_live):
+        aged_acc = 0
     acc = .1 * acc + .9 * aged_acc
     return acc
 
@@ -221,10 +218,7 @@ class PopulationManager:
 
     # Trim the weights.
     weights = list(zip(idxs, weights))
-    if self.top_n_to_select:
-      top_n = self.top_n_to_select
-    else:
-      top_n = int(len(weights) * self.top_perc_to_select)
+    top_n = self.top_n_to_select or int(len(weights) * self.top_perc_to_select)
     top_n = min(max(top_n, self.min_to_select), len(weights))
     weights = sorted(weights, key=lambda weight: weight[1])[:top_n]
     idxs, weights = zip(*weights)
@@ -232,14 +226,12 @@ class PopulationManager:
     # Weights: normalize to between 0 and 1, lower is better.
     min_weight = min(weights)
     weights = [w - min_weight for w in weights]
-    max_weight = max(weights)
-    if max_weight:
+    if max_weight := max(weights):
       weights = [w / max_weight for w in weights]
 
     # Weights: range from 1 to 1/10, higher is better.
     weights = [10 ** -w for w in weights]
-    parent_idx = random.choices(idxs, weights=weights)[0]
-    return parent_idx
+    return random.choices(idxs, weights=weights)[0]
 
   def select_individuals(
       self,
@@ -263,10 +255,9 @@ class PopulationManager:
       # generation was created.
       if individual.completion_time_sec > 0:
         time_completed = individual.completion_time_sec
-        num_generations_alive = sum([
+        num_generations_alive = sum(
             i.creation_time_sec > time_completed + self.warm_up_secs
-            for i in population
-        ])
+            for i in population)
         accuracy = self.age(individual.accuracy, num_generations_alive)
       else:
         accuracy = individual.accuracy
@@ -280,11 +271,10 @@ class PopulationManager:
     if random.random() < .5:
       targeted_evol = False
     if targeted_evol and base_individuals:
-      base_acc = min([accuracies[bi] for bi in base_individuals])
-      base_im_sec_core_train = min(
-          [im_sec_core_train[bi] for bi in base_individuals])
-      base_num_params = max([num_params[bi] for bi in base_individuals])
-      base_flops = max([flops[bi] for bi in base_individuals])
+      base_acc = min(accuracies[bi] for bi in base_individuals)
+      base_im_sec_core_train = min(im_sec_core_train[bi] for bi in base_individuals)
+      base_num_params = max(num_params[bi] for bi in base_individuals)
+      base_flops = max(flops[bi] for bi in base_individuals)
     else:
       targeted_evol = False
 
@@ -403,9 +393,8 @@ class ModelMutator:
         if block.name == block_to_mutate.name
     ]
 
-    m = re.fullmatch(r"(.+)/trial[0-9]+", block_to_mutate.name)
-    if m:
-      orig_name = m.group(1)
+    if m := re.fullmatch(r"(.+)/trial[0-9]+", block_to_mutate.name):
+      orig_name = m[1]
     else:
       orig_name = block_to_mutate.name
     new_name = f"{orig_name}/trial{child_id}"
@@ -483,10 +472,11 @@ class ModelMutator:
 
       block_inps = []
       for idx, block in enumerate(parent_blocks):
-        block_inps_idx = {}
-        for cur_key, old_key in zip(block.graph.input_names,
-                                    block.base_graph.input_names):
-          block_inps_idx[old_key] = block_inputs[idx][cur_key]
+        block_inps_idx = {
+            old_key: block_inputs[idx][cur_key]
+            for cur_key, old_key in zip(block.graph.input_names,
+                                        block.base_graph.input_names)
+        }
         block_inps.append(block_inps_idx)
 
       block_to_mutate = parent_blocks[block_id]
@@ -506,10 +496,8 @@ class ModelMutator:
       for attempt_idx in range(self.synthesis_retries):
         logging.info("Begin mutation attempt %d.", attempt_idx)
 
-        contexts = []
-        for block, block_inp in blocks:
-          contexts.append((block.base_constants, None, block_inp))
-
+        contexts = [(block.base_constants, None, block_inp)
+                    for block, block_inp in blocks]
         subg_and_props = mutator.mutate(
             block_to_mutate.base_graph, contexts, abstract=True)
         synthesizer = self.synthesizer(child_id, subg_and_props)
@@ -644,12 +632,10 @@ class ParetoCurve:
       idx1 = None
       idx2 = None
       for idx, (lo, hi) in enumerate(zip(self.curve, self.curve[1:])):
-        if lo[0] >= anchor[0] >= hi[0]:
-          if not idx1 or idx2 and idx2 <= idx1:
-            idx1 = idx
-        if lo[1] <= anchor[1] <= hi[1]:
-          if not idx2 or idx1 and idx1 <= idx2:
-            idx2 = idx
+        if lo[0] >= anchor[0] >= hi[0] and (not idx1 or idx2 and idx2 <= idx1):
+          idx1 = idx
+        if lo[1] <= anchor[1] <= hi[1] and (not idx2 or idx1 and idx1 <= idx2):
+          idx2 = idx
       if idx1 is None or idx2 is None:
         raise ValueError(f"Anchor point {anchor} lies outside the pareto curve "
                          f"({self.curve[0]}, {self.curve[-1]}) and cannot be "
@@ -706,8 +692,7 @@ class ParetoCurve:
                        ((ob2[1] - ob1[1]) / norm2) ** 2)
 
     def is_pareto_optimal(ob):
-      return not any(
-          [po[0] >= ob[0] and po[1] >= ob[1] for po in self.curve])
+      return not any(po[0] >= ob[0] and po[1] >= ob[1] for po in self.curve)
 
     # Compute all the weights.
     if anchor:

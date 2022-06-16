@@ -132,16 +132,19 @@ class _FingerprintModel(Model):
   def exec_op(self, op, input_values, *_,
               **__):
     """Hash an op with the given inputs."""
-    if op.type == OpType.NONE or op.type == OpType.IDENTITY:
+    if op.type in [OpType.NONE, OpType.IDENTITY]:
       return input_values
 
     op_kwargs, input_kwargs = get_full_kwargs(op)
-    outputs = [
-        hash((op.type, frozenset(op_kwargs.items()),
-              frozenset(input_kwargs.items()), frozenset(input_values), idx))
-        for idx in range(op.num_outputs)
+    return [
+        hash((
+            op.type,
+            frozenset(op_kwargs.items()),
+            frozenset(input_kwargs.items()),
+            frozenset(input_values),
+            idx,
+        )) for idx in range(op.num_outputs)
     ]
-    return outputs
 
   def resolve_op(self, op, *args, **kwargs):
     op = super().resolve_op(op, *args, **kwargs)
@@ -172,7 +175,7 @@ def fingerprint_graph(graph,
   for input_name in graph.input_names:
     input_name = canonicalize_tensor_name(input_name)
     constants[f"hashed/{input_name}"] = hash(input_name)
-  constants.update(shapes.input_shapes)
+  constants |= shapes.input_shapes
   constants.update(shapes.output_shapes)
 
   # Output hash values.

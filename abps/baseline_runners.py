@@ -189,7 +189,7 @@ def perturb(num, low=0.95, high=1.05):
 
 
 def unstack_time_steps(stack_timesteps):
-  st_component = [item for item in stack_timesteps]
+  st_component = list(stack_timesteps)
   t_components = zip(*st_component)
   return [ts.TimeStep(*t_component) for t_component in t_components]
 
@@ -209,8 +209,7 @@ def add_summary(file_writer, tag, value, step):
 
 
 def write_csv(outdir, tag, value, step, iteration):
-  with tf.gfile.GFile(os.path.join(outdir, tag + '%r=3.2:sl=8M'),
-                      'a+') as writer:
+  with tf.gfile.GFile(os.path.join(outdir, f'{tag}%r=3.2:sl=8M'), 'a+') as writer:
     if isinstance(value, str):
       writer.write('%d\t%d\t%s\n' % (iteration, step, value))
     else:
@@ -423,16 +422,15 @@ class Runner(object):
     hparam_path = None
     if tf.gfile.Glob(os.path.join(self._hparam_dir, 'hparam-*.json')):
       logging.info('found existing hyper parameters')
-      most_recent_hparam = max([
+      most_recent_hparam = max(
           int(x.split('.json')[0].split('-')[-1]) for x in tf.gfile.Glob(
-              os.path.join(self._hparam_dir, 'hparam-*.json'))
-      ])
+              os.path.join(self._hparam_dir, 'hparam-*.json')))
       hparam_path = os.path.join(self._hparam_dir,
-                                 'hparam-{}.json'.format(most_recent_hparam))
+                                 f'hparam-{most_recent_hparam}.json')
       self._load_hparam(hparam_path)
     elif self._create_hparam:
       logging.info('creating hyper parameters')
-      self._worker_names = ['worker_' + str(x) for x in range(num_worker)]
+      self._worker_names = [f'worker_{str(x)}' for x in range(num_worker)]
       self._num_agents = num_worker
       for i, worker_name in enumerate(self._worker_names):
         hparam = hparam_lib.HParams(**self._default_hparams)
@@ -477,11 +475,7 @@ class Runner(object):
     self._device_name = {}
     for i, worker in enumerate(self._worker_names):
       hparam = self._hparams[worker]
-      if self._devices:
-        device = '/gpu:' + str(i % len(self._devices))
-      else:
-        device = '/cpu:0'
-
+      device = f'/gpu:{str(i % len(self._devices))}' if self._devices else '/cpu:0'
       with tf.device(device):
         logging.info('%s (%s) is assigned to machine %s', worker, hparam.name,
                      device)
@@ -502,11 +496,9 @@ class Runner(object):
         worker: self._hparams[worker].values() for worker in self._worker_names
     }
     if snapshot:
-      filename = os.path.join(self._hparam_dir,
-                              'stathparam-' + str(ckpt_step) + '.json')
+      filename = os.path.join(self._hparam_dir, f'stathparam-{str(ckpt_step)}.json')
     else:
-      filename = os.path.join(self._hparam_dir,
-                              'hparam-' + str(ckpt_step) + '.json')
+      filename = os.path.join(self._hparam_dir, f'hparam-{str(ckpt_step)}.json')
     with tf.gfile.GFile(filename, 'w') as json_file:
       json.dump(hparam_dict, json_file)
 
@@ -612,10 +604,10 @@ class Runner(object):
             step_int,
             dtype=tf.int64,
             trainable=False,
-            name='train_step_' + hname)
+            name=f'train_step_{hname}')
       else:
         train_step = tf.Variable(
-            0, dtype=tf.int64, trainable=False, name='train_step_' + hname)
+            0, dtype=tf.int64, trainable=False, name=f'train_step_{hname}')
       epsilon = tf.train.polynomial_decay(
           1.0,
           train_step,
@@ -710,8 +702,7 @@ class Runner(object):
       while True:
         action_steps = batched_policy.action(time_steps)
         next_time_steps = batched_env.step(action_steps.action)
-        is_last = np.where(next_time_steps.is_last())[0]
-        if is_last:
+        if is_last := np.where(next_time_steps.is_last())[0]:
           is_over = is_last[np.asarray(
               [batched_env._envs[i].game_over for i in is_last])]  # pylint: disable=protected-access
           yet_alive = np.setdiff1d(is_last, is_over)
@@ -724,7 +715,11 @@ class Runner(object):
         self._update_metrics(metrics, batched_traj)
         time_steps = next_time_steps
         if is_over:
-          if not done_create_process:
+          if done_create_process:
+            for metric in metrics:
+              count_masked = metric.set_mask(is_over)
+              logging.info('finished_process:%d', count_masked)
+          else:
             unpacked_time_steps = unstack_time_steps(time_steps)
             for process_id in is_over:
               unpacked_time_steps[process_id] = batched_env._envs[  # pylint: disable=protected-access
@@ -734,13 +729,9 @@ class Runner(object):
             logging.info('started episode:%d', count_started_episode)
             if count_started_episode >= episode_limit:
               done_create_process = True
-          else:
-            for metric in metrics:
-              count_masked = metric.set_mask(is_over)
-              logging.info('finished_process:%d', count_masked)
         if count_masked == num_env:
           break
-    logging.info('%s', 'online eval time = {}'.format(self._eval_timer.value()))
+    logging.info('%s', f'online eval time = {self._eval_timer.value()}')
     self._eval_timer.reset()
 
   def _run_step(self, sess, env, time_step, policy):
@@ -825,19 +816,23 @@ class Runner(object):
           ckpt_dir=os.path.join(self._train_dir, worker, 'behaviormetric'),
           max_to_keep=self._max_ckpt,
           **{
-              ('behavior_metric_' + worker):
-                  metric_utils.MetricsGroup(self._behavior_metrics[worker],
-                                            worker + '_metric')
-          })
+              f'behavior_metric_{worker}':
+              metric_utils.MetricsGroup(self._behavior_metrics[worker],
+                                        f'{worker}_metric')
+          },
+      )
 
   def record_log_metric(self):
     """Record log metric."""
     for worker in self._worker_names:
       env_step = int(self._env_steps_metric[worker].result())
       if self._pbt or self._use_bandit:
-        add_summary(self._train_file_writer,
-                    'QMetrics/' + self._bandit_arm_q[worker].name,
-                    self._bandit_arm_q[worker].result('most_recent'), env_step)
+        add_summary(
+            self._train_file_writer,
+            f'QMetrics/{self._bandit_arm_q[worker].name}',
+            self._bandit_arm_q[worker].result('most_recent'),
+            env_step,
+        )
         write_csv(self._csv_dir, self._bandit_arm_q[worker].name,
                   self._bandit_arm_q[worker].result(), env_step,
                   self._episode_metric[worker].result())
@@ -854,9 +849,13 @@ class Runner(object):
                   self._hparams[worker].lr, env_step)
       add_summary(self._train_file_writer, 'WorkerHparam/' + 'edecay_' + worker,
                   self._hparams[worker].edecay, env_step)
-      write_csv(self._csv_dir, 'worker_status_' + worker,
-                self._agent_names[worker], env_step,
-                self._episode_metric[worker].result())
+      write_csv(
+          self._csv_dir,
+          f'worker_status_{worker}',
+          self._agent_names[worker],
+          env_step,
+          self._episode_metric[worker].result(),
+      )
 
   def update_rb_metric_checkpointer(
       self, use_common=False):  # iteration_metrics=self._iteration_metric,
@@ -883,7 +882,8 @@ class Runner(object):
             ckpt_dir=os.path.join(self._train_dir, worker, 'behaviormetric'),
             max_to_keep=self._max_ckpt,
             behavior_metric=metric_utils.MetricsGroup(
-                self._behavior_metrics[worker], worker + '_metric'))
+                self._behavior_metrics[worker], f'{worker}_metric'),
+        )
       self._basic_checkpointer = common.Checkpointer(
           ckpt_dir=os.path.join(self._train_dir, 'basic'),
           max_to_keep=self._max_ckpt,
@@ -903,9 +903,10 @@ class Runner(object):
         self._metric_checkpointer[worker] = tf.train.CheckpointManager(
             tf.train.Checkpoint(
                 behavior_metric=metric_utils.MetricsGroup(
-                    self._behavior_metrics[worker], worker + '_metric')),
+                    self._behavior_metrics[worker], f'{worker}_metric')),
             directory=os.path.join(self._train_dir, worker, 'behaviormetric'),
-            max_to_keep=self._max_ckpt)
+            max_to_keep=self._max_ckpt,
+        )
       self._basic_checkpointer = tf.train.CheckpointManager(
           tf.train.Checkpoint(
               metrics=metric_utils.MetricsGroup(
@@ -932,10 +933,11 @@ class Runner(object):
               ckpt_dir=os.path.join(self._train_dir, worker, 'bandit'),
               max_to_keep=self._max_ckpt,
               **{
-                  ('pbt_metrics_' + worker):
-                      metric_utils.MetricsGroup([self._bandit_arm_q[worker]],
-                                                'metric_q_' + worker)
-              })
+                  f'pbt_metrics_{worker}':
+                  metric_utils.MetricsGroup([self._bandit_arm_q[worker]],
+                                            f'metric_q_{worker}')
+              },
+          )
     else:
       for worker in self._worker_names:
         self._train_checkpointer[worker] = tf.train.CheckpointManager(
@@ -946,13 +948,13 @@ class Runner(object):
           self._bandit_checkpointer[worker] = tf.train.CheckpointManager(
               tf.train.Checkpoint(
                   **{
-                      ('pbt_metrics_' + worker):
-                          metric_utils.MetricsGroup(
-                              [self._bandit_arm_q[worker]], 'metric_q_' +
-                              worker)
+                      f'pbt_metrics_{worker}':
+                      metric_utils.MetricsGroup([self._bandit_arm_q[worker]],
+                                                'metric_q_' + worker)
                   }),
               directory=os.path.join(self._train_dir, worker, 'bandit'),
-              max_to_keep=self._max_ckpt)
+              max_to_keep=self._max_ckpt,
+          )
 
   def update_train_checkpointer_large(self, use_common=False):
     all_iterable = {worker: self._agents[worker] for worker in self._agents}

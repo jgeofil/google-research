@@ -183,11 +183,10 @@ class HParams(object):
     # attribute of this object.  In that case we refuse to use it as a
     # hyperparameter name.
     if getattr(self, name, None) is not None:
-      raise ValueError('Hyperparameter name is reserved: %s' % name)
+      raise ValueError(f'Hyperparameter name is reserved: {name}')
     if isinstance(value, (list, tuple)):
       if not value:
-        raise ValueError('Multi-valued hyperparameters cannot be empty: %s' %
-                         name)
+        raise ValueError(f'Multi-valued hyperparameters cannot be empty: {name}')
       self._hparam_types[name] = (type(value[0]), True)
     else:
       self._hparam_types[name] = (type(value), False)
@@ -208,14 +207,12 @@ class HParams(object):
     param_type, is_list = self._hparam_types[name]
     if isinstance(value, list):
       if not is_list:
-        raise ValueError(
-            'Must not pass a list for single-valued parameter: %s' % name)
+        raise ValueError(f'Must not pass a list for single-valued parameter: {name}')
       setattr(self, name,
               [_cast_to_type_if_compatible(name, param_type, v) for v in value])
+    elif is_list:
+      raise ValueError(f'Must pass a list for multi-valued parameter: {name}.')
     else:
-      if is_list:
-        raise ValueError('Must pass a list for multi-valued parameter: %s.' %
-                         name)
       setattr(self, name, _cast_to_type_if_compatible(name, param_type, value))
 
   def override_from_dict(self, values_dict):
@@ -290,30 +287,29 @@ class HParams(object):
 
   def get(self, key, default=None):
     """Returns the value of `key` if it exists, else `default`."""
-    if key in self._hparam_types:
+    if key not in self._hparam_types:
+      return default
       # Ensure that default is compatible with the parameter type.
-      if default is not None:
-        param_type, is_param_list = self._hparam_types[key]
-        type_str = 'list<%s>' % param_type if is_param_list else str(param_type)
-        fail_msg = ("Hparam '%s' of type '%s' is incompatible with "
-                    'default=%s' % (key, type_str, default))
+    if default is not None:
+      param_type, is_param_list = self._hparam_types[key]
+      type_str = f'list<{param_type}>' if is_param_list else str(param_type)
+      fail_msg = ("Hparam '%s' of type '%s' is incompatible with "
+                  'default=%s' % (key, type_str, default))
 
-        is_default_list = isinstance(default, list)
-        if is_param_list != is_default_list:
-          raise ValueError(fail_msg)
+      is_default_list = isinstance(default, list)
+      if is_param_list != is_default_list:
+        raise ValueError(fail_msg)
 
-        try:
-          if is_default_list:
-            for value in default:
-              _cast_to_type_if_compatible(key, param_type, value)
-          else:
-            _cast_to_type_if_compatible(key, param_type, default)
-        except ValueError as e:
-          raise ValueError('%s. %s' % (fail_msg, e))
+      try:
+        if is_default_list:
+          for value in default:
+            _cast_to_type_if_compatible(key, param_type, value)
+        else:
+          _cast_to_type_if_compatible(key, param_type, default)
+      except ValueError as e:
+        raise ValueError(f'{fail_msg}. {e}')
 
-      return getattr(self, key)
-
-    return default
+    return getattr(self, key)
 
   def __contains__(self, key):
     return key in self._hparam_types
@@ -322,7 +318,7 @@ class HParams(object):
     return str(sorted(self.values().items()))
 
   def __repr__(self):
-    return '%s(%s)' % (type(self).__name__, self.__str__())
+    return f'{type(self).__name__}({self.__str__()})'
 
   @staticmethod
   def _get_kind_name(param_type, is_list):
@@ -352,7 +348,7 @@ class HParams(object):
     elif issubclass(param_type, float):
       typename = 'float'
     else:
-      raise ValueError('Unsupported parameter type: %s' % str(param_type))
+      raise ValueError(f'Unsupported parameter type: {str(param_type)}')
 
     suffix = 'list' if is_list else 'value'
     return '_'.join([typename, suffix])
